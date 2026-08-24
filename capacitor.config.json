@@ -1,0 +1,6 @@
+{
+  "appId": "com.lifeos.health",
+  "appName": "LifeOS",
+  "webDir": "out",
+  "bundledWebRuntime": false
+}
