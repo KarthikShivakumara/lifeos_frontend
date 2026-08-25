@@ -35,10 +35,11 @@ export function mapAssessmentToHypertensionPayload(formData: Record<string, any>
 
   const heart_rate = formData.heart_rate !== undefined && formData.heart_rate !== null && formData.heart_rate !== "" ? Number(formData.heart_rate) : undefined
   const cholesterol = formData.cholesterol !== undefined && formData.cholesterol !== null && formData.cholesterol !== "" ? Number(formData.cholesterol) : undefined
-  const glucose = mapGlucoseToBloodGlucose(formData.glucose !== undefined ? Number(formData.glucose) : undefined)
+  const raw_glucose = formData.blood_glucose ?? formData.glucose
+  const glucose = mapGlucoseToBloodGlucose(raw_glucose !== undefined && raw_glucose !== "" ? Number(raw_glucose) : undefined)
 
   const smoking_status = mapSmokingToStatus(formData.smoking_status)
-  const physical_activity = mapActivityToStatus(formData.exercise_frequency)
+  const physical_activity = mapActivityToStatus(formData.physical_activity ?? formData.exercise_frequency)
   const stress_level = mapStressToStatus(formData.stress_level)
 
   const payload: HypertensionPredictionRequest = {

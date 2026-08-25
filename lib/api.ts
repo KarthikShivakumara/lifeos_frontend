@@ -240,3 +240,22 @@ export async function explainSleep(data: import("./types").SleepPredictionReques
     body: JSON.stringify(data),
   })
 }
+
+export const adaptiveApi = {
+  getBaseline: (token?: string) => apiFetch<import("./types").UserBaselineSummary>("/adaptive/baseline", { token }),
+  getTrends: (token?: string) => apiFetch<Record<string, any>>("/adaptive/trends", { token }),
+  getWeeklyReport: (token?: string) => apiFetch<import("./types").WeeklyHealthReport>("/adaptive/reports/weekly", { token }),
+  getMonthlyReport: (token?: string) => apiFetch<import("./types").MonthlyHealthReport>("/adaptive/reports/monthly", { token }),
+  logFeedback: (recommendationId: string, action: string, token?: string) =>
+    apiFetch<{ id: string; action: string }>("/adaptive/feedback", {
+      method: "POST",
+      token,
+      body: JSON.stringify({ recommendation_id: recommendationId, action }),
+    }),
+  logOutcome: (payload: Record<string, any>, token?: string) =>
+    apiFetch<{ id: string; outcome_type: string }>("/adaptive/outcomes", {
+      method: "POST",
+      token,
+      body: JSON.stringify(payload),
+    }),
+}

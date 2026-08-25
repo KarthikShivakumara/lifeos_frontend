@@ -20,7 +20,7 @@ export function mapAssessmentToObesityPayload(formData: Record<string, any>): Ob
   const water_intake_l = formData.water_intake_l !== undefined && formData.water_intake_l !== "" ? Number(formData.water_intake_l) : 2.0
   const calorie_monitoring = formData.calorie_monitoring !== undefined ? Number(formData.calorie_monitoring) : 0.0
 
-  const act_val = mapActivityToStatus(formData.exercise_frequency)
+  const act_val = mapActivityToStatus(formData.physical_activity ?? formData.exercise_frequency)
   const physical_activity_frequency = act_val !== undefined ? act_val * 2.0 : 1.0
 
   const technology_usage_hours = formData.technology_usage_hours !== undefined ? Number(formData.technology_usage_hours) : 1.0

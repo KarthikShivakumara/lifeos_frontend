@@ -49,7 +49,8 @@ export function mapAssessmentToDiabetesPayload(formData: Record<string, any>): D
     bmi = Number((weight_kg / Math.pow(height_cm / 100.0, 2)).toFixed(2))
   }
 
-  const blood_glucose_level = mapGlucoseToBloodGlucose(formData.glucose !== undefined ? Number(formData.glucose) : undefined)
+  const raw_glucose = formData.blood_glucose ?? formData.glucose
+  const blood_glucose_level = mapGlucoseToBloodGlucose(raw_glucose !== undefined && raw_glucose !== "" ? Number(raw_glucose) : undefined)
   const hba1c_level = formData.hba1c !== undefined && formData.hba1c !== null && formData.hba1c !== "" ? Number(formData.hba1c) : undefined
 
   const systolic_bp = formData.systolic_bp !== undefined ? Number(formData.systolic_bp) : undefined

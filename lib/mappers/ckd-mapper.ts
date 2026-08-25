@@ -3,7 +3,7 @@ import type { CKDPredictionRequest } from "../types"
 export function mapAssessmentToCKDPayload(formData: Record<string, any>): CKDPredictionRequest {
   const age = Number(formData.age ?? 45)
   const bp = Number(formData.systolic_bp ?? 120)
-  const bgr = Number(formData.glucose ?? 100)
+  const bgr = Number(formData.blood_glucose ?? formData.glucose ?? 100)
   const htn = bp >= 140 ? "yes" : "no"
   const dm = bgr >= 126 || formData.family_history_diabetes === "yes" ? "yes" : "no"
 

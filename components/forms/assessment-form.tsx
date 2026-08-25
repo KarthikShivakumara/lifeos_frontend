@@ -221,6 +221,8 @@ export function AssessmentForm({ token, onCreated }: { token: string; onCreated:
       setAnalysisPhase(2)
       setStatus("Step 2/5: Evaluating Heart, Diabetes, Hypertension, Obesity, Stroke, & CKD models in parallel...")
 
+      const authToken = token || (typeof window !== "undefined" ? localStorage.getItem("lifeos_token") || "" : "")
+
       const heartPayload = mapAssessmentToHeartPayload(values)
       const diabetesPayload = mapAssessmentToDiabetesPayload(values)
       const htnPayload = mapAssessmentToHypertensionPayload(values)
@@ -229,10 +231,10 @@ export function AssessmentForm({ token, onCreated }: { token: string; onCreated:
       const ckdPayload = mapAssessmentToCKDPayload(values)
 
       const [heartPredRes, diabetesPredRes, htnPredRes, obesityPredRes, strokePredRes, ckdPredRes] = await Promise.allSettled([
-        heartApi.predict(heartPayload, token),
-        diabetesApi.predict(diabetesPayload, token),
-        hypertensionApi.predict(htnPayload, token),
-        obesityApi.predict(obesityPayload, token),
+        heartApi.predict(heartPayload, authToken),
+        diabetesApi.predict(diabetesPayload, authToken),
+        hypertensionApi.predict(htnPayload, authToken),
+        obesityApi.predict(obesityPayload, authToken),
         predictStroke(strokePayload),
         predictCKD(ckdPayload),
       ])
@@ -245,14 +247,25 @@ export function AssessmentForm({ token, onCreated }: { token: string; onCreated:
       let ckdPred: any = null
 
       if (heartPredRes.status === "fulfilled") heartPred = heartPredRes.value
+      else console.error("Heart prediction failed:", heartPredRes.reason)
+
       if (diabetesPredRes.status === "fulfilled") diabetesPred = diabetesPredRes.value
+      else console.error("Diabetes prediction failed:", diabetesPredRes.reason)
+
       if (htnPredRes.status === "fulfilled") htnPred = htnPredRes.value
+      else console.error("Hypertension prediction failed:", htnPredRes.reason)
+
       if (obesityPredRes.status === "fulfilled") obesityPred = obesityPredRes.value
+      else console.error("Obesity prediction failed:", obesityPredRes.reason)
+
       if (strokePredRes.status === "fulfilled") strokePred = strokePredRes.value
+      else console.error("Stroke prediction failed:", strokePredRes.reason)
+
       if (ckdPredRes.status === "fulfilled") ckdPred = ckdPredRes.value
+      else console.error("CKD prediction failed:", ckdPredRes.reason)
 
       if (!heartPred && !diabetesPred && !htnPred && !obesityPred && !strokePred && !ckdPred) {
-        throw new Error("Failed to communicate with prediction services.")
+        throw new Error("Failed to communicate with prediction services. Backend service might be waking up (Render spin-down) or unreachable.")
       }
 
       setAnalysisPhase(3)

@@ -21,7 +21,7 @@ export function mapAssessmentToStrokePayload(formData: Record<string, any>): Str
     ever_married: age >= 25 ? "Yes" : "No",
     work_type: "Private",
     Residence_type: "Urban",
-    avg_glucose_level: Number(formData.glucose ?? 100),
+    avg_glucose_level: Number(formData.blood_glucose ?? formData.glucose ?? 100),
     bmi,
     smoking_status,
   }

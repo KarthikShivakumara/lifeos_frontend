@@ -86,10 +86,11 @@ export function mapAssessmentToHeartPayload(formData: Record<string, any>): Hear
 
   const smoking_status = mapSmokingToStatus(formData.smoking_status)
   const alcohol_status = mapAlcoholToStatus(formData.alcohol_use ?? formData.alcohol_status)
-  const physical_activity = mapActivityToStatus(formData.exercise_frequency ?? formData.physical_activity)
+  const physical_activity = mapActivityToStatus(formData.physical_activity ?? formData.exercise_frequency)
 
-  const cholesterol_ordinal = mapCholesterolToOrdinal(formData.cholesterol !== undefined ? Number(formData.cholesterol) : undefined)
-  const glucose_ordinal = mapGlucoseToOrdinal(formData.glucose !== undefined ? Number(formData.glucose) : undefined)
+  const cholesterol_ordinal = mapCholesterolToOrdinal(formData.cholesterol !== undefined && formData.cholesterol !== "" ? Number(formData.cholesterol) : undefined)
+  const glucose_val = formData.blood_glucose ?? formData.glucose
+  const glucose_ordinal = mapGlucoseToOrdinal(glucose_val !== undefined && glucose_val !== "" ? Number(glucose_val) : undefined)
 
   const payload: HeartPredictionRequest = {
     age_years,

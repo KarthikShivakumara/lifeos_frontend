@@ -658,3 +658,61 @@ export type SleepExplanationResponse = {
   }>
   explanation_summary: string
 }
+
+// Layer E — Adaptive Intelligence Types
+export type UserBaselineItem = {
+  metric: string
+  baseline_value: number
+  rolling_7_day_avg: number | null
+  rolling_30_day_avg: number | null
+  min_value: number | null
+  max_value: number | null
+  std_deviation: number | null
+  current_deviation: number | null
+  trend: "IMPROVING" | "STABLE" | "DECLINING" | "INSUFFICIENT_DATA"
+  consistency_score: number
+  last_updated: string
+}
+
+export type UserBaselineSummary = {
+  user_id: string
+  baselines: UserBaselineItem[]
+  evaluated_at: string
+}
+
+export type WeeklyHealthReport = {
+  report_id: string
+  user_id: string
+  period_start: string
+  period_end: string
+  clinical_screening_summary: Record<string, string>
+  wellness_summary: {
+    sleep_7d_avg_hours: number
+    steps_7d_avg: number
+  }
+  sleep_trend: string
+  activity_trend: string
+  nutrition_summary: Record<string, string>
+  improvements: string[]
+  declines: string[]
+  personalized_recommendations: string[]
+  disclaimer: string
+  generated_at: string
+}
+
+export type MonthlyHealthReport = {
+  report_id: string
+  user_id: string
+  month_name: string
+  clinical_changes: Record<string, string>
+  wellness_changes: {
+    sleep_30d_avg: number
+    steps_30d_avg: number
+  }
+  consistency_score: number
+  recommendation_adherence_rate: number
+  key_focus_areas: string[]
+  summary_text: string
+  disclaimer: string
+  generated_at: string
+}
