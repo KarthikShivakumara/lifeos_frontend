@@ -5,6 +5,12 @@
   "bundledWebRuntime": false,
   "server": {
     "url": "https://lifeos-frontend-azth.vercel.app",
-    "cleartext": true
+    "cleartext": true,
+    "allowNavigation": [
+      "lifeos-frontend-azth.vercel.app",
+      "lifeos-api-13dc.onrender.com",
+      "*.vercel.app",
+      "*.onrender.com"
+    ]
   }
 }
