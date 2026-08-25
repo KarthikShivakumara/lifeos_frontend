@@ -6,7 +6,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function apiUrl(path: string) {
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1"
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "https://lifeos-api-13dc.onrender.com/api/v1"
   return `${base.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`
 }
 
