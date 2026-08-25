@@ -49,6 +49,7 @@ import { mapAssessmentToHypertensionPayload } from "@/lib/mappers/hypertension-m
 import { mapAssessmentToObesityPayload } from "@/lib/mappers/obesity-mapper"
 import { mapAssessmentToStrokePayload } from "@/lib/mappers/stroke-mapper"
 import { mapAssessmentToCKDPayload } from "@/lib/mappers/ckd-mapper"
+import { sendDevicePushNotification } from "@/lib/services/push-notifications"
 import type {
   CombinedDiabetesResult,
   CombinedHeartResult,
@@ -388,6 +389,11 @@ export function AssessmentForm({ token, onCreated }: { token: string; onCreated:
       try {
         await historyApi.create(newSnapshot, token)
         await notificationsApi.generate(token).catch((err) => console.warn("Notification warning:", err))
+        
+        sendDevicePushNotification({
+          title: "LifeOS Health Assessment Complete 🏥",
+          body: `Multi-model analysis completed. Composite Risk: ${fusionResult?.overall_risk_level?.toUpperCase() || "EVALUATED"}. Tap to review recommendations.`,
+        })
       } catch (err) {
         console.warn("History API warning:", err)
       }
