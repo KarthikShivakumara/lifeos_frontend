@@ -716,3 +716,178 @@ export type MonthlyHealthReport = {
   disclaimer: string
   generated_at: string
 }
+
+export type DemoUserSummary = {
+  id: string
+  name: string
+  label: string
+  tagline: string
+  age: number
+  sex: string
+  avatar_color: string
+  baseline_summary: string
+  purpose: string
+  total_days: number
+}
+
+export type DemoDayData = {
+  day: number
+  date: string
+  vitals: {
+    bp: string
+    glucose: number
+    hba1c: number
+    cholesterol: number
+  }
+  sleep_hours: number
+  steps: number
+  active_minutes: number
+  sedentary_hours: number
+  nutrition_summary: string
+  screening_indicators: Record<string, string>
+  wellness_signals: Record<string, string>
+  recommendations: string[]
+  notification: string
+  rag_context: string
+}
+
+export type DemoUserDetail = DemoUserSummary & {
+  days: DemoDayData[]
+}
+
+export type DemoWeeklyReport = {
+  user_id: string
+  user_name: string
+  label: string
+  tagline: string
+  period: string
+  initial_state: {
+    sleep: string
+    steps: string
+    sedentary: string
+  }
+  final_state: {
+    sleep: string
+    steps: string
+    sedentary: string
+  }
+  overall_trend: string
+  weekly_recommendations: string[]
+  next_week_focus: string[]
+  disclaimer: string
+}
+
+// Nutrition Subsystem Contracts
+export type NutrientProfile = {
+  calories_kcal: number
+  protein_g: number
+  carbohydrates_g: number
+  fat_g: number
+  fiber_g: number
+  sugars_g: number
+  sodium_mg: number
+  calcium_mg?: number | null
+  iron_mg?: number | null
+}
+
+export type FoodItemRecord = {
+  food_id: string
+  food_name: string
+  category: string
+  source: "Indian_Food" | "Daily_Food" | "USDA_Foundation"
+  serving_basis: string
+  nutrients_per_100g: NutrientProfile
+  cultural_tag: string
+}
+
+export type FoodSearchResponse = {
+  query: string
+  total_results: number
+  results: FoodItemRecord[]
+}
+
+export type MealItemInput = {
+  food_id: string
+  quantity_g: number
+}
+
+export type MealCalculationRequest = {
+  meal_type: "breakfast" | "lunch" | "dinner" | "snack"
+  items: MealItemInput[]
+}
+
+export type MealCalculationResponse = {
+  meal_type: string
+  total_nutrients: NutrientProfile
+  items_count: number
+  food_summary: Array<Record<string, any>>
+}
+
+export type DailyNutritionAggregationRequest = {
+  meals: MealCalculationResponse[]
+  user_body_weight_kg?: number | null
+}
+
+export type NutritionSignal = {
+  domain: "nutrition"
+  nutrition_score: number
+  quality_tier: "optimal" | "balanced" | "suboptimal" | "poor"
+  total_calories_kcal: number
+  total_protein_g: number
+  total_carbohydrates_g: number
+  total_fat_g: number
+  total_fiber_g: number
+  total_sodium_mg: number
+  calorie_target_status: string
+  protein_adequacy_pct: number
+  sodium_risk_level: string
+  fiber_adequacy_pct: number
+  recommendation_triggers: string[]
+  cultural_context: string
+  source: string
+}
+
+// Activity Subsystem Contracts
+export type ActivityPredictionRequest = {
+  gender: string
+  age: number
+  height: number
+  weight: number
+  duration: number
+  heart_rate: number
+  body_temp: number
+}
+
+export type ActivityCaloriePredictionResponse = {
+  subsystem: "activity_wellness"
+  estimated_calories: number
+  duration_minutes: number
+  model: string
+  model_version: string
+}
+
+export type ActivityEngineInput = {
+  daily_steps: number
+  very_active_minutes: number
+  fairly_active_minutes: number
+  lightly_active_minutes: number
+  sedentary_minutes: number
+  historical_steps?: number[]
+}
+
+export type ActivitySignal = {
+  domain: "activity"
+  activity_score: number
+  activity_level: "low" | "moderate" | "optimal"
+  sedentary_risk: "low" | "moderate" | "elevated"
+  weekly_trend: "IMPROVING" | "STABLE" | "DECLINING"
+  exercise_consistency_pct: number
+  daily_steps: number
+  active_minutes: number
+  sedentary_hours: number
+  estimated_workout_calories?: number | null
+  source: string
+  recommendation_triggers: string[]
+}
+
+

@@ -187,6 +187,24 @@ export const reportApi = {
   list: (token?: string) => apiFetch<Report[]>("/reports", { token }),
   create: (token: string, payload: { report_type: string; title: string; summary: string }) =>
     apiFetch<Report>("/reports", { method: "POST", token, body: JSON.stringify(payload) }),
+  downloadPdf: async (snapshotId = "latest", token?: string) => {
+    const activeToken = token || (typeof window !== "undefined" ? localStorage.getItem("lifeos_token") || undefined : undefined)
+    const headers = new Headers()
+    if (activeToken) {
+      headers.set("Authorization", `Bearer ${activeToken}`)
+    }
+    const res = await fetch(apiUrl(`/reports/${snapshotId}/pdf`), { headers, cache: "no-store" })
+    if (!res.ok) throw new Error("Failed to download PDF report")
+    const blob = await res.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `LifeOS_Health_Report_${snapshotId}.pdf`
+    document.body.appendChild(a)
+    a.click()
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(a)
+  },
 }
 
 export const sensorApi = {
@@ -259,3 +277,58 @@ export const adaptiveApi = {
       body: JSON.stringify(payload),
     }),
 }
+
+export const demoApi = {
+  getUsers: () => apiFetch<import("./types").DemoUserSummary[]>("/demo/users"),
+  getUserDetail: (userId: string) => apiFetch<import("./types").DemoUserDetail>(`/demo/users/${userId}`),
+  getDaySimulation: (userId: string, day: number) => apiFetch<import("./types").DemoDayData>(`/demo/users/${userId}/simulation/${day}`),
+  getWeeklyReport: (userId: string) => apiFetch<import("./types").DemoWeeklyReport>(`/demo/users/${userId}/weekly-report`),
+}
+
+export const nutritionApi = {
+  search: (query: string, limit = 20, token?: string) =>
+    apiFetch<import("./types").FoodSearchResponse>(`/nutrition/search?q=${encodeURIComponent(query)}&limit=${limit}`, { token }),
+  calculateMeal: (payload: import("./types").MealCalculationRequest, token?: string) =>
+    apiFetch<import("./types").MealCalculationResponse>("/nutrition/meal", {
+      method: "POST",
+      token,
+      body: JSON.stringify(payload),
+    }),
+  calculateDaily: (payload: import("./types").DailyNutritionAggregationRequest, token?: string) =>
+    apiFetch<import("./types").NutritionSignal>("/nutrition/daily", {
+      method: "POST",
+      token,
+      body: JSON.stringify(payload),
+    }),
+}
+
+export const activityApi = {
+  estimateCalories: (payload: import("./types").ActivityPredictionRequest, token?: string) =>
+    apiFetch<import("./types").ActivityCaloriePredictionResponse>("/activity/estimate-calories", {
+      method: "POST",
+      token,
+      body: JSON.stringify(payload),
+    }),
+  evaluate: (payload: import("./types").ActivityEngineInput, token?: string) =>
+    apiFetch<import("./types").ActivitySignal>("/activity/evaluate", {
+      method: "POST",
+      token,
+      body: JSON.stringify(payload),
+    }),
+}
+
+export const sleepApi = {
+  predict: (payload: import("./types").SleepPredictionRequest, token?: string) =>
+    apiFetch<import("./types").SleepPredictionResponse>("/predict/sleep", {
+      method: "POST",
+      token,
+      body: JSON.stringify(payload),
+    }),
+  explain: (payload: import("./types").SleepPredictionRequest, token?: string) =>
+    apiFetch<import("./types").SleepExplanationResponse>("/explain/sleep", {
+      method: "POST",
+      token,
+      body: JSON.stringify(payload),
+    }),
+}
+

@@ -601,7 +601,10 @@ export default function DashboardPage() {
 
           <div className="grid gap-4 sm:grid-cols-3">
             {/* Sleep Card */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2 shadow-xs">
+            <div
+              onClick={() => router.push("/sleep")}
+              className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2 shadow-xs hover:border-indigo-400 cursor-pointer transition"
+            >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-xs font-bold text-indigo-900">
                   <Moon className="h-4 w-4 text-indigo-600" />
@@ -614,14 +617,17 @@ export default function DashboardPage() {
               <div className="text-2xl font-extrabold text-slate-900 pt-1">
                 {rawSleep} hrs
               </div>
-              <div className="text-[11px] text-slate-500 flex items-center justify-between">
-                <span>Reported nightly rest</span>
+              <div className="text-[11px] text-slate-500 flex items-center justify-between pt-1 border-t border-slate-100">
+                <span className="text-indigo-600 font-semibold hover:underline">Open Sleep Lab →</span>
                 <span className="text-[10px] text-slate-400">Non-diagnostic</span>
               </div>
             </div>
 
             {/* Activity Card */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2 shadow-xs">
+            <div
+              onClick={() => router.push("/activity")}
+              className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2 shadow-xs hover:border-sky-400 cursor-pointer transition"
+            >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-xs font-bold text-sky-900">
                   <Activity className="h-4 w-4 text-sky-600" />
@@ -634,28 +640,31 @@ export default function DashboardPage() {
               <div className="text-2xl font-extrabold text-slate-900 pt-1">
                 {activityLevelText}
               </div>
-              <div className="text-[11px] text-slate-500 flex items-center justify-between">
-                <span>{activityRecommendationText}</span>
+              <div className="text-[11px] text-slate-500 flex items-center justify-between pt-1 border-t border-slate-100">
+                <span className="text-sky-600 font-semibold hover:underline">Calorie & Steps Engine →</span>
                 <span className="text-[10px] text-slate-400">Non-diagnostic</span>
               </div>
             </div>
 
             {/* Nutrition Card */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2 shadow-xs">
+            <div
+              onClick={() => router.push("/nutrition")}
+              className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2 shadow-xs hover:border-emerald-400 cursor-pointer transition"
+            >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-xs font-bold text-emerald-900">
                   <Utensils className="h-4 w-4 text-emerald-600" />
                   <span>Nutrition Intelligence</span>
                 </div>
                 <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
-                  USDA Indexed
+                  89k Foods
                 </span>
               </div>
               <div className="text-2xl font-extrabold text-slate-900 pt-1 capitalize">
                 {String(heartResult?.rawInput?.diet_quality || "Good Quality")}
               </div>
-              <div className="text-[11px] text-slate-500 flex items-center justify-between">
-                <span>Hybrid Nutrient Engine</span>
+              <div className="text-[11px] text-slate-500 flex items-center justify-between pt-1 border-t border-slate-100">
+                <span className="text-emerald-600 font-semibold hover:underline">Open Meal Diary →</span>
                 <span className="text-[10px] text-slate-400">Non-diagnostic</span>
               </div>
             </div>

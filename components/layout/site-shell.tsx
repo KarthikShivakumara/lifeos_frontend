@@ -12,11 +12,13 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Moon,
   Radar,
   Settings,
   ShieldCheck,
   Stethoscope,
   User,
+  Utensils,
   X,
 } from "lucide-react"
 import { notificationsApi } from "@/lib/api"
@@ -46,10 +48,18 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    group: "WELLNESS",
+    items: [
+      { href: "/nutrition", label: "Nutrition", icon: Utensils },
+      { href: "/activity", label: "Activity", icon: Activity },
+      { href: "/sleep", label: "Sleep", icon: Moon },
+    ],
+  },
+  {
     group: "INSIGHTS",
     items: [
       { href: "/coach", label: "AI Coach", icon: Bot },
-      { href: "/reports", label: "Reports", icon: FileText },
+      { href: "/reports", label: "Reports & Demo", icon: FileText },
       { href: "/sensors", label: "Sensors", icon: Radar },
     ],
   },
