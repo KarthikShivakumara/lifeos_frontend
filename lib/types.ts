@@ -418,6 +418,8 @@ export type HealthSnapshot = {
   disease_results: Record<string, any>
   risk_fusion?: RiskFusionResult | Record<string, any> | null
   recommendations?: RecommendationItem[] | Record<string, any>[]
+  wellness_outputs?: Record<string, any> | null
+  model_versions?: Record<string, string>
 }
 
 export type HealthHistoryResponse = {
@@ -607,6 +609,7 @@ export type CKDPredictionResponse = {
   prediction: number
   model: string
   model_version: string
+  is_lab_enhanced?: boolean
 }
 
 export type CKDExplanationResponse = {
@@ -889,5 +892,85 @@ export type ActivitySignal = {
   source: string
   recommendation_triggers: string[]
 }
+
+// Stress Subsystem Contracts (Layer B Wellness Intelligence V2)
+export type StressCheckinRequest = {
+  perceived_stress: number
+  overwhelm?: number | null
+  difficulty_relaxing?: number | null
+  mood?: number | null
+  energy?: number | null
+  notes?: string | null
+}
+
+export type StressCheckin = {
+  id: string
+  user_id: string
+  created_at: string
+  perceived_stress: number
+  overwhelm?: number | null
+  difficulty_relaxing?: number | null
+  mood?: number | null
+  energy?: number | null
+  sleep_hours_snapshot?: number | null
+  activity_minutes_snapshot?: number | null
+  stress_index: number
+  stress_level: "low" | "mild" | "moderate" | "high"
+  data_completeness: number
+  is_diagnostic: boolean
+  recommendations: string[]
+  notes?: string | null
+}
+
+export type StressCurrentResponse = {
+  current_index?: number | null
+  current_level?: "low" | "mild" | "moderate" | "high" | null
+  data_completeness?: number | null
+  latest_checkin?: StressCheckin | null
+  rolling_7d_avg?: number | null
+  rolling_30d_avg?: number | null
+  trend: "IMPROVING" | "STABLE" | "INCREASING" | "INSUFFICIENT_DATA"
+  is_diagnostic: boolean
+  disclaimer: string
+  recommendations: string[]
+}
+
+export type StressTrendPoint = {
+  date: string
+  stress_index: number
+  stress_level: string
+  sleep_hours?: number | null
+  activity_minutes?: number | null
+}
+
+export type StressTrendResponse = {
+  days_requested: number
+  data_points: StressTrendPoint[]
+  average_index?: number | null
+  trend: "IMPROVING" | "STABLE" | "INCREASING" | "INSUFFICIENT_DATA"
+  observed_patterns: string[]
+  is_diagnostic: boolean
+  disclaimer: string
+}
+
+export type StressSummaryResponse = {
+  total_checkins_30d: number
+  average_index_30d?: number | null
+  highest_index_30d?: number | null
+  lowest_index_30d?: number | null
+  consistency_score: number
+  trend: string
+  level_distribution: Record<string, number>
+  is_diagnostic: boolean
+  disclaimer: string
+}
+
+export type StressRecommendationItem = {
+  title: string
+  description: string
+  priority: "HIGH" | "MEDIUM" | "LOW"
+  category: string
+}
+
 
 

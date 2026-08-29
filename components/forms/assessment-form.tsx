@@ -30,6 +30,8 @@ import {
   Stethoscope,
   User,
   Zap,
+  FlaskConical,
+  Layers,
 } from "lucide-react"
 import {
   diabetesApi,
@@ -48,7 +50,7 @@ import { mapAssessmentToHeartPayload } from "@/lib/mappers/heart-mapper"
 import { mapAssessmentToHypertensionPayload } from "@/lib/mappers/hypertension-mapper"
 import { mapAssessmentToObesityPayload } from "@/lib/mappers/obesity-mapper"
 import { mapAssessmentToStrokePayload } from "@/lib/mappers/stroke-mapper"
-import { mapAssessmentToCKDPayload } from "@/lib/mappers/ckd-mapper"
+import { mapAssessmentToCKDPayload, isLabEnhancedCKD } from "@/lib/mappers/ckd-mapper"
 import { sendDevicePushNotification } from "@/lib/services/push-notifications"
 import type {
   CombinedDiabetesResult,
@@ -102,19 +104,35 @@ const schema = z.object({
   family_history_diabetes: z.string().optional(),
   family_history_heart_disease: z.string().optional(),
   family_history_stroke: z.string().optional(),
+  family_history_obesity: z.string().optional(),
 
-  // Step 4: Lifestyle Habits
+  // Step 4: Lifestyle & Nutrition Habits (Feeding Obesity, CVD, and Wellness)
   smoking_status: z.string().optional(),
   alcohol_use: z.string().optional(),
   exercise_frequency: z.string().optional(),
   physical_activity: z.string().optional(),
   diet_quality: z.string().optional(),
+  vegetable_consumption: optionalNumber(1, 3, "Vegetable consumption"),
+  meals_per_day: optionalNumber(1, 6, "Meals per day"),
+  between_meal_eating: optionalNumber(0, 3, "Snacking frequency"),
+  calorie_monitoring: z.string().optional(),
+  technology_usage_hours: optionalNumber(0, 24, "Daily screen hours"),
+  transportation_mode: z.string().optional(),
 
   // Step 5: Sleep & Wellness
   water_intake_l: optionalNumber(0.5, 10, "Daily water intake"),
   sleep_hours: z.coerce.number().min(3, "Sleep duration must be at least 3 hours").max(14, "Sleep duration must be at most 14 hours"),
   stress_level: z.string().optional(),
   depression_score: optionalNumber(0, 100, "Depression score"),
+
+  // Step 6: Kidney Laboratory Biomarkers (Optional Progressive Disclosure)
+  has_kidney_labs: z.boolean().optional(),
+  serum_creatinine: optionalNumber(0.1, 15.0, "Serum creatinine"),
+  blood_urea: optionalNumber(1, 250, "Blood urea / BUN"),
+  urinary_albumin: optionalNumber(0, 5, "Urinary albumin"),
+  hemoglobin: optionalNumber(3.0, 20.0, "Hemoglobin"),
+  specific_gravity: optionalNumber(1.000, 1.040, "Specific gravity"),
+  pedal_edema: z.string().optional(),
 
   notes: z.string().optional(),
 })
@@ -125,9 +143,10 @@ const STEP_TITLES = [
   { id: 1, name: "About You", icon: User, subtitle: "Basic demographic baseline" },
   { id: 2, name: "Body & Vitals", icon: HeartPulse, subtitle: "Physical & cardiac measurements" },
   { id: 3, name: "Medical History", icon: Stethoscope, subtitle: "Metabolic & genetic profile" },
-  { id: 4, name: "Lifestyle", icon: Activity, subtitle: "Everyday activity & habits" },
-  { id: 5, name: "Wellness", icon: Moon, subtitle: "Sleep & daily health signals" },
-  { id: 6, name: "Review", icon: ClipboardCheck, subtitle: "Verify & submit assessment" },
+  { id: 4, name: "Lifestyle & Diet", icon: Activity, subtitle: "Nutrition, activity & screen time" },
+  { id: 5, name: "Wellness & Sleep", icon: Moon, subtitle: "Sleep duration & hydration" },
+  { id: 6, name: "Kidney Labs", icon: FlaskConical, subtitle: "Optional clinical bloodwork" },
+  { id: 7, name: "Review", icon: ClipboardCheck, subtitle: "Verify & submit assessment" },
 ]
 
 export function AssessmentForm({ token, onCreated }: { token: string; onCreated: () => void }) {
@@ -163,21 +182,36 @@ export function AssessmentForm({ token, onCreated }: { token: string; onCreated:
       family_history_diabetes: "no",
       family_history_heart_disease: "no",
       family_history_stroke: "no",
+      family_history_obesity: "no",
       smoking_status: "no",
       alcohol_use: "no",
       physical_activity: "active",
       exercise_frequency: "active",
       diet_quality: "good",
-      water_intake_l: 2.5,
+      vegetable_consumption: 2,
+      meals_per_day: 3,
+      between_meal_eating: 1,
+      calorie_monitoring: "no",
+      technology_usage_hours: 1,
+      transportation_mode: "motorized",
+      water_intake_l: 2.0,
       sleep_hours: 8,
       stress_level: "low",
       depression_score: 0,
+      has_kidney_labs: false,
+      serum_creatinine: undefined,
+      blood_urea: undefined,
+      urinary_albumin: 0,
+      hemoglobin: undefined,
+      specific_gravity: undefined,
+      pedal_edema: "no",
       notes: "",
     },
   })
 
   const watchHeight = watch("height_cm")
   const watchWeight = watch("weight_kg")
+  const watchHasKidneyLabs = watch("has_kidney_labs")
 
   // Auto-calculate BMI whenever Height or Weight changes
   const calculatedBmi = useMemo(() => {
@@ -201,12 +235,13 @@ export function AssessmentForm({ token, onCreated }: { token: string; onCreated:
     if (currentStep === 1) fieldsToValidate = ["age", "gender"]
     else if (currentStep === 2) fieldsToValidate = ["height_cm", "weight_kg", "systolic_bp", "diastolic_bp", "heart_rate", "spo2"]
     else if (currentStep === 3) fieldsToValidate = ["glucose", "hba1c", "cholesterol"]
-    else if (currentStep === 4) fieldsToValidate = ["smoking_status", "alcohol_use", "exercise_frequency"]
+    else if (currentStep === 4) fieldsToValidate = ["smoking_status", "alcohol_use", "exercise_frequency", "vegetable_consumption", "meals_per_day", "between_meal_eating", "technology_usage_hours"]
     else if (currentStep === 5) fieldsToValidate = ["sleep_hours", "water_intake_l"]
+    else if (currentStep === 6 && watchHasKidneyLabs) fieldsToValidate = ["serum_creatinine", "blood_urea", "urinary_albumin", "hemoglobin", "specific_gravity"]
 
     const isStepValid = await trigger(fieldsToValidate)
     if (isStepValid) {
-      setCurrentStep((prev) => Math.min(prev + 1, 6))
+      setCurrentStep((prev) => Math.min(prev + 1, 7))
     }
   }
 
@@ -215,7 +250,7 @@ export function AssessmentForm({ token, onCreated }: { token: string; onCreated:
   }
 
   const submit = async (values: FormValues) => {
-    setCurrentStep(7) // Intelligence Analysis phase
+    setCurrentStep(8) // Real-Time Intelligence Analysis Phase
     setErrorMsg("")
     setAnalysisPhase(1)
     setStatus("Step 1/5: Validating health data & feature contracts...")
@@ -327,13 +362,15 @@ export function AssessmentForm({ token, onCreated }: { token: string; onCreated:
           JSON.stringify({ prediction: obesityPred, explanation: obesityExplain, explanationError: obesityExplainErr, rawInput: values, payload: obesityPayload, evaluatedAt: new Date().toISOString() })
         )
       }
-      if (strokePred) {
-        localStorage.setItem("lifeos_stroke_result", JSON.stringify(strokePred))
-      }
-      if (ckdPred) {
-        localStorage.setItem("lifeos_ckd_result", JSON.stringify(ckdPred))
-      }
+      const isLabEnhanced = isLabEnhancedCKD(values)
+      const ckdWithMeta = ckdPred ? { ...ckdPred, is_lab_enhanced: isLabEnhanced, evaluatedAt: new Date().toISOString() } : null
 
+      if (strokePred) {
+        localStorage.setItem("lifeos_stroke_result", JSON.stringify({ ...strokePred, evaluatedAt: new Date().toISOString() }))
+      }
+      if (ckdWithMeta) {
+        localStorage.setItem("lifeos_ckd_result", JSON.stringify(ckdWithMeta))
+      }
 
       setAnalysisPhase(4)
       setStatus("Step 4/5: Fusing disease predictions & generating clinical recommendations...")
@@ -373,7 +410,15 @@ export function AssessmentForm({ token, onCreated }: { token: string; onCreated:
       setAnalysisPhase(5)
       setStatus("Step 5/5: Storing health snapshot & finalizing intelligence profile...")
 
-      const maxRisk = Math.max(heartPred?.risk_score || 0, diabetesPred?.risk_score || 0, htnPred?.risk_score || 0, obesityPred?.risk_score || 0)
+      const maxRisk = Math.max(
+        heartPred?.risk_score || 0,
+        diabetesPred?.risk_score || 0,
+        htnPred?.risk_score || 0,
+        obesityPred?.risk_score || 0,
+        strokePred?.risk_score || 0,
+        ckdWithMeta?.risk_score || 0
+      )
+      
       localStorage.setItem(
         "lifeos_latest_result",
         JSON.stringify({
@@ -384,11 +429,15 @@ export function AssessmentForm({ token, onCreated }: { token: string; onCreated:
             diabetes: diabetesPred ? Math.round(diabetesPred.risk_score * 100) : null,
             hypertension: htnPred ? Math.round(htnPred.risk_score * 100) : null,
             obesity: obesityPred ? Math.round(obesityPred.risk_score * 100) : null,
+            stroke: strokePred ? Math.round(strokePred.risk_score * 100) : null,
+            ckd: ckdWithMeta ? Math.round(ckdWithMeta.risk_score * 100) : null,
           },
           heart_detail: heartPred ? JSON.parse(localStorage.getItem("lifeos_heart_result") || "null") : null,
           diabetes_detail: diabetesPred ? JSON.parse(localStorage.getItem("lifeos_diabetes_result") || "null") : null,
           hypertension_detail: htnPred ? JSON.parse(localStorage.getItem("lifeos_hypertension_result") || "null") : null,
           obesity_detail: obesityPred ? JSON.parse(localStorage.getItem("lifeos_obesity_result") || "null") : null,
+          stroke_detail: strokePred ? { ...strokePred, evaluatedAt: new Date().toISOString() } : null,
+          ckd_detail: ckdWithMeta,
           risk_fusion_detail: fusionResult,
           recommendations_detail: recResult,
         })
@@ -398,9 +447,24 @@ export function AssessmentForm({ token, onCreated }: { token: string; onCreated:
         id: `snap-${Date.now()}`,
         timestamp: new Date().toISOString(),
         assessment_input: values,
-        disease_results: { heart: heartPred, diabetes: diabetesPred, hypertension: htnPred, obesity: obesityPred },
+        disease_results: {
+          heart: heartPred,
+          diabetes: diabetesPred,
+          hypertension: htnPred,
+          obesity: obesityPred,
+          stroke: strokePred,
+          ckd: ckdWithMeta,
+        },
         risk_fusion: fusionResult,
         recommendations: recResult?.recommendations || [],
+        model_versions: {
+          heart: heartPred?.model_version || "1.0.0",
+          diabetes: diabetesPred?.model_version || "1.0.0",
+          hypertension: htnPred?.model_version || "1.0.0",
+          obesity: obesityPred?.model_version || "1.0.0",
+          stroke: strokePred?.model_version || "1.0.0",
+          ckd: ckdWithMeta?.model_version || "1.0.0",
+        },
       }
 
       try {
@@ -773,12 +837,12 @@ export function AssessmentForm({ token, onCreated }: { token: string; onCreated:
           </div>
         )}
 
-        {/* STEP 4: Lifestyle Habits */}
+        {/* STEP 4: Lifestyle & Nutrition Habits */}
         {currentStep === 4 && (
           <div className="space-y-6 animate-in fade-in duration-200">
             <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
               <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <Activity className="w-5 h-5 text-emerald-600" /> Step 4: Everyday Lifestyle Habits
+                <Activity className="w-5 h-5 text-emerald-600" /> Step 4: Everyday Lifestyle & Dietary Habits
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Your daily habits provide key behavioral context used across obesity, cardiovascular, and physical activity engines.
@@ -818,6 +882,125 @@ export function AssessmentForm({ token, onCreated }: { token: string; onCreated:
                         { label: "Drinker", value: "yes", description: "Regular intake" },
                       ]}
                       value={field.value || "no"}
+                      onChange={field.onChange}
+                    />
+                  )}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">Vegetable Intake Frequency</label>
+                <p className="text-xs text-slate-500">How often do you eat vegetables in meals?</p>
+                <Controller
+                  name="vegetable_consumption"
+                  control={control}
+                  render={({ field }) => (
+                    <SegmentedControl
+                      options={[
+                        { label: "Rarely", value: "1", description: "< 1 serving/day" },
+                        { label: "Sometimes", value: "2", description: "1–2 servings/day" },
+                        { label: "Daily", value: "3", description: "≥ 3 servings/day" },
+                      ]}
+                      value={String(field.value ?? 2)}
+                      onChange={(v) => field.onChange(Number(v))}
+                    />
+                  )}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">Main Meals Per Day</label>
+                <p className="text-xs text-slate-500">Number of primary meals eaten daily.</p>
+                <Controller
+                  name="meals_per_day"
+                  control={control}
+                  render={({ field }) => (
+                    <SegmentedControl
+                      options={[
+                        { label: "1–2 Meals", value: "2", description: "Infrequent" },
+                        { label: "3 Meals", value: "3", description: "Standard" },
+                        { label: "4+ Meals", value: "4", description: "Frequent" },
+                      ]}
+                      value={String(field.value ?? 3)}
+                      onChange={(v) => field.onChange(Number(v))}
+                    />
+                  )}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">Snacking Between Meals</label>
+                <p className="text-xs text-slate-500">How frequently do you eat food between main meals?</p>
+                <Controller
+                  name="between_meal_eating"
+                  control={control}
+                  render={({ field }) => (
+                    <SegmentedControl
+                      options={[
+                        { label: "Never", value: "0", description: "No snacks" },
+                        { label: "Sometimes", value: "1", description: "Occasional" },
+                        { label: "Frequently", value: "2", description: "Regularly" },
+                        { label: "Always", value: "3", description: "Constant" },
+                      ]}
+                      value={String(field.value ?? 1)}
+                      onChange={(v) => field.onChange(Number(v))}
+                    />
+                  )}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">Calorie Intake Tracking</label>
+                <p className="text-xs text-slate-500">Do you actively track or monitor your daily calories?</p>
+                <Controller
+                  name="calorie_monitoring"
+                  control={control}
+                  render={({ field }) => (
+                    <SegmentedControl
+                      options={[
+                        { label: "No Tracking", value: "no", description: "Standard diet" },
+                        { label: "Yes, Tracking", value: "yes", description: "Monitors calories" },
+                      ]}
+                      value={field.value || "no"}
+                      onChange={field.onChange}
+                    />
+                  )}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">Daily Screen / Device Hours</label>
+                <p className="text-xs text-slate-500">Daily sedentary screen time (phones, laptops, TV).</p>
+                <Controller
+                  name="technology_usage_hours"
+                  control={control}
+                  render={({ field }) => (
+                    <SegmentedControl
+                      options={[
+                        { label: "0–2 Hours", value: "0", description: "Low screen time" },
+                        { label: "3–5 Hours", value: "1", description: "Average screen time" },
+                        { label: "> 5 Hours", value: "2", description: "High screen time" },
+                      ]}
+                      value={String(field.value ?? 1)}
+                      onChange={(v) => field.onChange(Number(v))}
+                    />
+                  )}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">Primary Commute Mode</label>
+                <p className="text-xs text-slate-500">Typical transportation method used daily.</p>
+                <Controller
+                  name="transportation_mode"
+                  control={control}
+                  render={({ field }) => (
+                    <SegmentedControl
+                      options={[
+                        { label: "Active Commute", value: "walking", description: "Walking / Cycling" },
+                        { label: "Motorized Commute", value: "motorized", description: "Car / Bus / Train" },
+                      ]}
+                      value={field.value || "motorized"}
                       onChange={field.onChange}
                     />
                   )}
@@ -881,7 +1064,7 @@ export function AssessmentForm({ token, onCreated }: { token: string; onCreated:
                 explanation="Estimated volume of plain liquid water consumed per day."
                 unit="L/day"
                 rangeHint="0.5 – 10.0 liters"
-                tooltipContent="Adequate daily water intake is roughly 2.5–3.5 liters per day depending on climate and activity."
+                tooltipContent="Adequate daily water intake is roughly 2.0–3.5 liters per day depending on climate and activity."
                 type="number"
                 error={errors.water_intake_l?.message}
                 {...register("water_intake_l")}
@@ -900,12 +1083,154 @@ export function AssessmentForm({ token, onCreated }: { token: string; onCreated:
           </div>
         )}
 
-        {/* STEP 6: Review Information */}
+        {/* STEP 6: Kidney / Laboratory Data (Optional Progressive Disclosure) */}
         {currentStep === 6 && (
           <div className="space-y-6 animate-in fade-in duration-200">
             <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                  <FlaskConical className="w-5 h-5 text-cyan-600" /> Step 6: Kidney Health & Laboratory Biomarkers (Optional)
+                </h2>
+                <span className="text-xs bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 px-2.5 py-1 rounded-full font-medium border border-cyan-200 dark:border-cyan-800">
+                  Optional Clinical Labs
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Enter recent blood or urine laboratory results if available. If no laboratory tests have been performed, LifeOS will evaluate kidney health in self-assessment mode without fabricating clinical measurements.
+              </p>
+            </div>
+
+            {/* Mode Selector Toggle */}
+            <div className="p-4 rounded-xl border border-cyan-200 dark:border-cyan-900 bg-cyan-50/40 dark:bg-cyan-950/20 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                    Do you have recent clinical laboratory test results?
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Includes Serum Creatinine, Blood Urea / BUN, Urine Albumin, or Complete Blood Count.
+                  </p>
+                </div>
+                <Controller
+                  name="has_kidney_labs"
+                  control={control}
+                  render={({ field }) => (
+                    <SegmentedControl
+                      options={[
+                        { label: "No Labs Available", value: "no", description: "Vitals-only Mode A" },
+                        { label: "Enter Lab Results", value: "yes", description: "Enhanced Mode B" },
+                      ]}
+                      value={field.value ? "yes" : "no"}
+                      onChange={(v) => field.onChange(v === "yes")}
+                    />
+                  )}
+                />
+              </div>
+
+              {!watchHasKidneyLabs ? (
+                <div className="p-3 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 flex items-start gap-2">
+                  <Info className="w-4 h-4 text-cyan-600 shrink-0 mt-0.5" />
+                  <div>
+                    <strong>Self-Assessment Mode A Active:</strong> Chronic Kidney Disease risk will be estimated using your entered vitals (blood pressure, age, blood glucose). To prevent clinical inaccuracy, no fake normal creatinine or albumin values will be claimed as your personal measurements.
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300 flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <div>
+                    <strong>Lab-Enhanced Mode B Active:</strong> The 24-feature XGBoost kidney model will utilize your actual clinical laboratory biomarkers for individualized risk screening.
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Conditional Lab Inputs */}
+            {watchHasKidneyLabs && (
+              <div className="grid gap-6 md:grid-cols-2 animate-in fade-in duration-200">
+                <SmartInput
+                  label="Serum Creatinine"
+                  explanation="Key marker of glomerular filtration rate (GFR)."
+                  unit="mg/dL"
+                  rangeHint="0.1 – 15.0 mg/dL (Normal ~0.6–1.2)"
+                  tooltipContent="Creatinine is a waste product filtered by the kidneys. Elevated levels indicate impaired clearance."
+                  type="number"
+                  error={errors.serum_creatinine?.message}
+                  {...register("serum_creatinine")}
+                />
+
+                <SmartInput
+                  label="Blood Urea / BUN"
+                  explanation="Nitrogen waste product from protein metabolism."
+                  unit="mg/dL"
+                  rangeHint="1 – 250 mg/dL (Normal ~7–20)"
+                  tooltipContent="Blood Urea Nitrogen rises when kidney function decreases or with severe dehydration."
+                  type="number"
+                  error={errors.blood_urea?.message}
+                  {...register("blood_urea")}
+                />
+
+                <SmartInput
+                  label="Urinary Albumin"
+                  explanation="Protein presence in urine sample (ordinal grade)."
+                  unit="grade 0–5"
+                  rangeHint="0 (Negative) to 5 (Heavy Proteinuria)"
+                  tooltipContent="Albuminuria indicates damage to kidney glomeruli filtering barriers."
+                  type="number"
+                  error={errors.urinary_albumin?.message}
+                  {...register("urinary_albumin")}
+                />
+
+                <SmartInput
+                  label="Hemoglobin Level"
+                  explanation="Oxygen-carrying protein in red blood cells."
+                  unit="g/dL"
+                  rangeHint="3.0 – 20.0 g/dL (Normal ~12–17)"
+                  tooltipContent="Kidneys produce erythropoietin (EPO); chronic impairment often results in low hemoglobin (renal anemia)."
+                  type="number"
+                  error={errors.hemoglobin?.message}
+                  {...register("hemoglobin")}
+                />
+
+                <SmartInput
+                  label="Urine Specific Gravity"
+                  explanation="Concentration of solutes in urine."
+                  unit="ratio"
+                  rangeHint="1.000 – 1.040 (Normal ~1.010–1.025)"
+                  tooltipContent="Reflects the kidney tubules ability to concentrate or dilute urine."
+                  type="number"
+                  error={errors.specific_gravity?.message}
+                  {...register("specific_gravity")}
+                />
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">Pedal Edema (Ankle Swelling)</label>
+                  <p className="text-xs text-slate-500">Noticeable swelling in feet, ankles, or lower legs?</p>
+                  <Controller
+                    name="pedal_edema"
+                    control={control}
+                    render={({ field }) => (
+                      <SegmentedControl
+                        options={[
+                          { label: "No Swelling", value: "no", description: "Normal" },
+                          { label: "Yes, Swelling", value: "yes", description: "Fluid retention" },
+                        ]}
+                        value={field.value || "no"}
+                        onChange={field.onChange}
+                      />
+                    )}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* STEP 7: Review Information */}
+        {currentStep === 7 && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
               <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <ClipboardCheck className="w-5 h-5 text-emerald-600" /> Step 6: Review Your Assessment Summary
+                <ClipboardCheck className="w-5 h-5 text-emerald-600" /> Step 7: Review Your Complete Assessment Summary
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Please verify all entered measurements before initiating multi-model intelligence analysis.
@@ -942,26 +1267,48 @@ export function AssessmentForm({ token, onCreated }: { token: string; onCreated:
               {/* Medical History Summary */}
               <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">3. Metabolic & Lab Profile</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">3. Metabolic Profile</span>
                   <button type="button" onClick={() => setCurrentStep(3)} className="text-xs text-emerald-600 font-semibold hover:underline">Edit</button>
                 </div>
                 <div className="text-xs text-slate-600 dark:text-slate-400 space-y-1">
-                  <div>Blood Glucose: <strong className="text-slate-900 dark:text-slate-100">{watch("glucose") || "Default median"} mg/dL</strong></div>
-                  <div>HbA1c: <strong className="text-slate-900 dark:text-slate-100">{watch("hba1c") || "Default median"} %</strong></div>
-                  <div>Cholesterol: <strong className="text-slate-900 dark:text-slate-100">{watch("cholesterol") || "Default median"} mg/dL</strong></div>
+                  <div>Blood Glucose: <strong className="text-slate-900 dark:text-slate-100">{watch("glucose") || "Default"} mg/dL</strong></div>
+                  <div>HbA1c: <strong className="text-slate-900 dark:text-slate-100">{watch("hba1c") || "Unspecified"} %</strong></div>
+                  <div>Cholesterol: <strong className="text-slate-900 dark:text-slate-100">{watch("cholesterol") || "Unspecified"} mg/dL</strong></div>
                 </div>
               </div>
 
               {/* Lifestyle & Wellness Summary */}
               <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">4 & 5. Lifestyle & Sleep</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">4 & 5. Lifestyle & Habits</span>
                   <button type="button" onClick={() => setCurrentStep(4)} className="text-xs text-emerald-600 font-semibold hover:underline">Edit</button>
                 </div>
                 <div className="text-xs text-slate-600 dark:text-slate-400 space-y-1">
-                  <div>Physical Activity: <strong className="text-slate-900 dark:text-slate-100 capitalize">{watch("exercise_frequency")}</strong></div>
-                  <div>Smoking / Alcohol: <strong className="text-slate-900 dark:text-slate-100 capitalize">{watch("smoking_status")} / {watch("alcohol_use")}</strong></div>
-                  <div>Sleep Duration: <strong className="text-indigo-600 dark:text-indigo-400">{watch("sleep_hours")} hours/night</strong></div>
+                  <div>Exercise / Activity: <strong className="text-slate-900 dark:text-slate-100 capitalize">{watch("exercise_frequency")}</strong></div>
+                  <div>Vegetables & Meals: <strong className="text-slate-900 dark:text-slate-100">{watch("vegetable_consumption") === 3 ? "Daily" : watch("vegetable_consumption") === 1 ? "Rarely" : "Sometimes"}, {watch("meals_per_day")} meals/day</strong></div>
+                  <div>Screen Time / Commute: <strong className="text-slate-900 dark:text-slate-100">{watch("technology_usage_hours") === 0 ? "0-2h" : watch("technology_usage_hours") === 2 ? ">5h" : "3-5h"}, {watch("transportation_mode")}</strong></div>
+                  <div>Sleep: <strong className="text-indigo-600 dark:text-indigo-400">{watch("sleep_hours")} hours/night</strong></div>
+                </div>
+              </div>
+
+              {/* Kidney Labs Mode Summary */}
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 space-y-2 md:col-span-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">6. Kidney Screening Mode</span>
+                  <button type="button" onClick={() => setCurrentStep(6)} className="text-xs text-emerald-600 font-semibold hover:underline">Edit</button>
+                </div>
+                <div className="text-xs text-slate-600 dark:text-slate-400">
+                  {watchHasKidneyLabs ? (
+                    <div className="text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5 font-semibold">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      Lab-Enhanced Screening Active (Creatinine: {watch("serum_creatinine") || "Standard"}, BUN: {watch("blood_urea") || "Standard"}, Albumin: {watch("urinary_albumin") ?? "Standard"})
+                    </div>
+                  ) : (
+                    <div className="text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                      <Info className="w-4 h-4 text-cyan-600" />
+                      Self-Assessment Vitals Mode (Evaluated from blood pressure, glucose, and age. No clinical laboratory values claimed).
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -969,14 +1316,14 @@ export function AssessmentForm({ token, onCreated }: { token: string; onCreated:
             <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
               <Info className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
               <div>
-                <strong>Submission Notice:</strong> Clicking <em>"Analyze Health Risk"</em> will execute 4 parallel machine learning disease models (Heart, Diabetes, Hypertension, Obesity), compute TreeSHAP feature attributions, invoke the Risk Fusion Engine, generate recommendations, and save a snapshot in your Health History.
+                <strong>Submission Notice:</strong> Clicking <em>"Analyze Health Risk"</em> will execute 6 parallel machine learning disease models (Heart, Diabetes, Hypertension, Obesity, Stroke, CKD), compute TreeSHAP feature attributions, invoke the 4-way Risk Fusion Engine, generate recommendations, and save a canonical snapshot in your Health History.
               </div>
             </div>
           </div>
         )}
 
-        {/* STEP 7: Real-Time Intelligence Loader */}
-        {currentStep === 7 && (
+        {/* STEP 8: Real-Time Intelligence Loader */}
+        {currentStep === 8 && (
           <div className="py-12 px-4 text-center space-y-6 animate-in fade-in duration-300">
             <div className="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-500 mx-auto flex items-center justify-center ring-8 ring-emerald-500/10 animate-pulse">
               <Loader2 className="w-8 h-8 animate-spin" />
@@ -995,7 +1342,7 @@ export function AssessmentForm({ token, onCreated }: { token: string; onCreated:
               </div>
               <div className={`flex items-center gap-2.5 ${analysisPhase >= 2 ? "text-emerald-600 font-semibold" : "text-slate-400"}`}>
                 {analysisPhase > 2 ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : analysisPhase === 2 ? <Loader2 className="w-4 h-4 animate-spin" /> : <div className="w-4 h-4 rounded-full border border-slate-300" />}
-                <span>2. Disease Model Inference (Heart, Diabetes, HTN, Obesity)</span>
+                <span>2. Disease Model Inference (6 Disease Verticals)</span>
               </div>
               <div className={`flex items-center gap-2.5 ${analysisPhase >= 3 ? "text-emerald-600 font-semibold" : "text-slate-400"}`}>
                 {analysisPhase > 3 ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : analysisPhase === 3 ? <Loader2 className="w-4 h-4 animate-spin" /> : <div className="w-4 h-4 rounded-full border border-slate-300" />}
@@ -1014,7 +1361,7 @@ export function AssessmentForm({ token, onCreated }: { token: string; onCreated:
         )}
 
         {/* Stepper Navigation Actions */}
-        {currentStep <= 6 && (
+        {currentStep <= 7 && (
           <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
             {currentStep > 1 ? (
               <Button type="button" variant="outline" onClick={handlePrevStep} className="rounded-xl gap-2">
@@ -1024,7 +1371,7 @@ export function AssessmentForm({ token, onCreated }: { token: string; onCreated:
               <div />
             )}
 
-            {currentStep < 6 ? (
+            {currentStep < 7 ? (
               <Button type="button" onClick={handleNextStep} className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
                 Next Step <ArrowRight className="w-4 h-4" />
               </Button>

@@ -332,3 +332,23 @@ export const sleepApi = {
     }),
 }
 
+export const stressApi = {
+  createCheckin: (payload: import("./types").StressCheckinRequest, token?: string) =>
+    apiFetch<import("./types").StressCheckin>("/stress/checkins", {
+      method: "POST",
+      token,
+      body: JSON.stringify(payload),
+    }),
+  current: (token?: string) =>
+    apiFetch<import("./types").StressCurrentResponse>("/stress/current", { token }),
+  history: (limit: number = 30, token?: string) =>
+    apiFetch<import("./types").StressCheckin[]>(`/stress/history?limit=${limit}`, { token }),
+  trends: (days: number = 7, token?: string) =>
+    apiFetch<import("./types").StressTrendResponse>(`/stress/trends?days=${days}`, { token }),
+  summary: (token?: string) =>
+    apiFetch<import("./types").StressSummaryResponse>("/stress/summary", { token }),
+  recommendations: (token?: string) =>
+    apiFetch<import("./types").StressRecommendationItem[]>("/stress/recommendations", { token }),
+}
+
+

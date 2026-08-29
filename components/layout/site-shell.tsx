@@ -7,6 +7,7 @@ import {
   Activity,
   Bell,
   Bot,
+  Brain,
   FileText,
   History,
   LayoutDashboard,
@@ -53,8 +54,10 @@ const navGroups: NavGroup[] = [
       { href: "/nutrition", label: "Nutrition", icon: Utensils },
       { href: "/activity", label: "Activity", icon: Activity },
       { href: "/sleep", label: "Sleep", icon: Moon },
+      { href: "/stress", label: "Stress", icon: Brain },
     ],
   },
+
   {
     group: "INSIGHTS",
     items: [

@@ -31,6 +31,7 @@ import {
   recommendationApi,
   reportApi,
   sensorApi,
+  stressApi,
   twinApi,
 } from "@/lib/api"
 import { SiteShell } from "@/components/layout/site-shell"
@@ -51,8 +52,10 @@ import type {
   Report,
   RiskFusionResult,
   SensorReading,
+  StressCurrentResponse,
   StrokePredictionResponse,
 } from "@/lib/types"
+
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -74,7 +77,9 @@ export default function DashboardPage() {
   const [fusionResult, setFusionResult] = useState<RiskFusionResult | null>(null)
   const [recommendationResult, setRecommendationResult] = useState<RecommendationEngineResponse | null>(null)
   const [trendSummary, setTrendSummary] = useState<HealthTrendSummary | null>(null)
+  const [stressStatus, setStressStatus] = useState<StressCurrentResponse | null>(null)
   const [showAllRecs, setShowAllRecs] = useState<boolean>(false)
+
   const [aiQuestion, setAiQuestion] = useState<string>("")
   const [lastUpdatedTime, setLastUpdatedTime] = useState<string>("")
 
@@ -139,16 +144,19 @@ export default function DashboardPage() {
       recommendationApi.list(stored).catch(() => []),
       reportApi.list(stored).catch(() => []),
       sensorApi.list(stored).catch(() => []),
+      stressApi.current(stored).catch(() => null),
     ])
-      .then(([twinData, assessData, predData, recData, reportData, sensorData]) => {
+      .then(([twinData, assessData, predData, recData, reportData, sensorData, stressData]) => {
         if (twinData) setTwin(twinData)
         if (assessData) setAssessments(assessData)
         if (predData) setPredictions(predData)
         if (recData) setRecommendations(recData)
         if (reportData) setReports(reportData)
         if (sensorData) setSensors(sensorData)
+        if (stressData) setStressStatus(stressData)
       })
       .finally(() => setLoading(false))
+
   }, [router])
 
   const chartSeries = trendSummary && trendSummary.trend_points.length > 0
@@ -501,15 +509,33 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 {ckdPred && (
-                  <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${getRiskBadge(ckdPred.risk_level).bg}`}>
-                    <span className={`h-1.5 w-1.5 rounded-full ${getRiskBadge(ckdPred.risk_level).dot}`} />
-                    {getRiskBadge(ckdPred.risk_level).label}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold ${
+                      ckdPred.is_lab_enhanced 
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
+                        : "bg-amber-50 text-amber-700 border-amber-200"
+                    }`}>
+                      {ckdPred.is_lab_enhanced ? "Lab-Enhanced" : "Baseline (Vitals)"}
+                    </span>
+                    <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${getRiskBadge(ckdPred.risk_level).bg}`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${getRiskBadge(ckdPred.risk_level).dot}`} />
+                      {getRiskBadge(ckdPred.risk_level).label}
+                    </span>
+                  </div>
                 )}
               </div>
               <div className="flex items-baseline justify-between pt-1">
-                <div className="text-3xl font-extrabold tracking-tight text-slate-900">
-                  {ckdPred ? `${(ckdPred.risk_score * 100).toFixed(1)}%` : "Pending"}
+                <div>
+                  <div className="text-3xl font-extrabold tracking-tight text-slate-900">
+                    {ckdPred ? `${(ckdPred.risk_score * 100).toFixed(1)}%` : "Pending"}
+                  </div>
+                  {ckdPred && (
+                    <div className="text-[10px] text-slate-400 mt-0.5">
+                      {ckdPred.is_lab_enhanced
+                        ? "Individualized lab-enhanced renal indicator"
+                        : "Limited screening indicator (available vitals only)"}
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={() => router.push("/assessments/new")}
@@ -588,18 +614,18 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Layer B — Wellness Intelligence */}
+        {/* Layer B — Wellness Intelligence (4 Subsystems) */}
         <div className="space-y-3">
           <div>
             <h2 className="text-base font-bold tracking-tight text-slate-900">
-              Layer B — Wellness & Lifestyle Intelligence
+              Layer B — 4 Wellness & Lifestyle Subsystems
             </h2>
             <p className="text-xs text-slate-500">
-              Non-diagnostic lifestyle signals derived from reported daily habits.
+              Non-diagnostic lifestyle signals derived from reported daily habits: Sleep, Physical Activity, Nutrition, and Stress.
             </p>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {/* Sleep Card */}
             <div
               onClick={() => router.push("/sleep")}
@@ -610,7 +636,7 @@ export default function DashboardPage() {
                   <Moon className="h-4 w-4 text-indigo-600" />
                   <span>Sleep Intelligence</span>
                 </div>
-                <span className="rounded-full border px-2 py-0.5 text-[10px] font-bold ${sleepStatus.color}">
+                <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${sleepStatus.color}`}>
                   {sleepStatus.label}
                 </span>
               </div>
@@ -668,8 +694,46 @@ export default function DashboardPage() {
                 <span className="text-[10px] text-slate-400">Non-diagnostic</span>
               </div>
             </div>
+
+            {/* Stress Intelligence Card */}
+            <div
+              onClick={() => router.push("/stress")}
+              className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2 shadow-xs hover:border-purple-400 cursor-pointer transition"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-bold text-purple-900">
+                  <Brain className="h-4 w-4 text-purple-600" />
+                  <span>Stress Intelligence</span>
+                </div>
+                <span
+                  className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+                    stressStatus?.current_level === "high"
+                      ? "text-rose-700 bg-rose-50 border-rose-200"
+                      : stressStatus?.current_level === "moderate"
+                      ? "text-amber-700 bg-amber-50 border-amber-200"
+                      : stressStatus?.current_level === "mild"
+                      ? "text-blue-700 bg-blue-50 border-blue-200"
+                      : "text-emerald-700 bg-emerald-50 border-emerald-200"
+                  }`}
+                >
+                  {stressStatus?.current_level
+                    ? `${stressStatus.current_level.toUpperCase()}`
+                    : "OPTIMAL / LOW"}
+                </span>
+              </div>
+              <div className="text-2xl font-extrabold text-slate-900 pt-1">
+                {stressStatus?.current_index !== undefined && stressStatus?.current_index !== null
+                  ? `${stressStatus.current_index.toFixed(1)} / 100`
+                  : "Daily Check-in"}
+              </div>
+              <div className="text-[11px] text-slate-500 flex items-center justify-between pt-1 border-t border-slate-100">
+                <span className="text-purple-600 font-semibold hover:underline">Open Stress Lab →</span>
+                <span className="text-[10px] text-slate-400">Non-diagnostic</span>
+              </div>
+            </div>
           </div>
         </div>
+
 
         {/* TreeSHAP Feature Attribution Insights */}
         <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4 shadow-xs">
